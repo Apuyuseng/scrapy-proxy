@@ -1,13 +1,15 @@
 '''
 @Author: your name
 @Date: 2020-04-20 22:07:41
-@LastEditTime: 2020-04-27 12:37:56
+@LastEditTime: 2020-04-29 11:56:14
 @LastEditors: Please set LastEditors
 @Description: In User Settings Edit
 @FilePath: /scrapy-proxy/redisMd.py
 '''
 import re
 import random
+import base64
+from json import loads
 from scrapy.http import Request,Response
 # pip3 install redis
 from redis import ConnectionPool, StrictRedis
@@ -21,12 +23,13 @@ class RedisMiddleware(object):
     支持http/https两种方式代理
     原理：获取维护好到redis代理池中到代理ip
     '''
-    def __init__(slef, settings):
+    def __init__(self, settings):
         # 设置redis连接代理池
         pool = ConnectionPool(**settings.get('REDIS'))
         self.redis_conn = lambda : StrictRedis(connection_pool=pool)
         self.RIDES_PROXYS_KEY = settings.get('RIDES_PROXYS_KEY')
         self.INVALID_PROXY = []
+        self.change_proxy()
        
 
     @classmethod
@@ -40,15 +43,15 @@ class RedisMiddleware(object):
         if request and request.meta.get('invalid_proxy'):
            self.INVALID_PROXY.append(request.meta.get('invalid_proxy'))
 
-        if request.meta.get('proxy','').find(self.proxy['ip'])==-1:
+        if request and request.meta.get('proxy','').find(self.proxy['ip'])==-1:
             # 表面代理已经被跟换了
             return
 
         conn = self.redis_conn()
-        proxy_count = conn.llen(self.PROXY_POOL_KEY)
+        proxy_count = conn.llen(self.RIDES_PROXYS_KEY)
         log.debug('代理池中有可用ip %s个', proxy_count)
         index = random.randint(0, proxy_count)
-        _proxy = conn.lindex(self.PROXY_POOL_KEY, index)
+        _proxy = conn.lindex(self.RIDES_PROXYS_KEY, index)
         proxy = loads(_proxy)
         # 将无效代理记录在redis中，在分布式中有一定等作用
         # res = conn.sismember(self.INVALID_PROXY_KEY, proxy['ip'])
