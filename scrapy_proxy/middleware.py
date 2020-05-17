@@ -1,7 +1,7 @@
 '''
 @Author: your name
 @Date: 2020-04-20 22:07:41
-@LastEditTime: 2020-05-02 11:50:04
+@LastEditTime: 2020-05-17 11:47:00
 @LastEditors: Please set LastEditors
 @Description: In User Settings Edit
 @FilePath: /scrapy-proxy/redisMd.py
@@ -72,7 +72,10 @@ class RedisMiddleware(object):
         conn = self.redis_conn()
         proxy_count = conn.llen(self.RIDES_PROXYS_KEY)
         log.debug('代理池中有可用ip %s个', proxy_count)
-        index = random.randint(1, proxy_count)
+        if proxy_count==0:
+            time.sleep(3)
+            return self.get_proxy()
+        index = random.randrange(0, proxy_count)
         if index==proxy_count and proxy_count>1:
             # 可以能会被刚删除。。。。
             index = index-1
