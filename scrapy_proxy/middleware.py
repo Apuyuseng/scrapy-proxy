@@ -71,29 +71,24 @@ class RedisMiddleware(object):
 
         conn = self.redis_conn()
         proxy_count = conn.llen(self.RIDES_PROXYS_KEY)
-        log.debug('代理池中有可用ip %s个', proxy_count)
-        if proxy_count==0:
+        proxys = conn.lrange(self.RIDES_PROXYS_KEY,0,-1)
+
+        log.debug('代理池中有可用ip %s个', len(proxys))
+        if len(proxys)==0:
             time.sleep(3)
             return self.get_proxy()
-        index = random.randrange(0, proxy_count)
-        if index==proxy_count and proxy_count>1:
-            # 可以能会被刚删除。。。。
-            index = index-1
-        _proxy = conn.lindex(self.RIDES_PROXYS_KEY, index)
-        try:
-            proxy = loads(_proxy)
-        except:
-            log.exception('2秒钟后再次获取代理 %s',_proxy)
-            log.exception('index %s',index)
-            time.sleep(2)
+
+        proxy = None
+        for row in proxys:
+            proxy = loads(row)
+            if proxy['ip'] not in self.INVALID_PROXY:
+                break
+            else:
+                proxy = None
+        
+        if not proxy:
             return self.get_proxy()
-        # 将无效代理记录在redis中，在分布式中有一定等作用
-        # res = conn.sismember(self.INVALID_PROXY_KEY, proxy['ip'])
-        # if res == 0:
-        #     self.proxy = proxy
-        #     return proxy
-        if proxy['ip'] in self.INVALID_PROXY:
-            return self.get_proxy(request)
+
         else:
             return proxy
 
